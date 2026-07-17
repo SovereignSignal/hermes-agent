@@ -9,9 +9,36 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
 
-from cron.scheduler import _resolve_origin, _resolve_delivery_target, _deliver_result, _send_media_via_adapter, run_job, SILENT_MARKER, _build_job_prompt, _resolve_cron_enabled_toolsets, _merge_mcp_into_per_job_toolsets
+from cron.scheduler import _resolve_origin, _resolve_delivery_target, _deliver_result, _send_media_via_adapter, run_job, SILENT_MARKER, _build_job_prompt, _resolve_cron_enabled_toolsets, _merge_mcp_into_per_job_toolsets, _summarize_cron_failure_for_delivery
 from tools.env_passthrough import clear_env_passthrough
 from tools.credential_files import clear_credential_files
+
+
+class TestCronFailureDeliverySummary:
+    def test_script_exit_with_timeout_configuration_is_not_provider_timeout(self):
+        error = (
+            "Script exited with code 1\n"
+            "stdout:\n"
+            "pipeline failed after validation; timeout=1800s"
+        )
+
+        summary = _summarize_cron_failure_for_delivery(
+            {"name": "Daily Macro Brief"}, error
+        )
+
+        assert "script exited with code 1" in summary
+        assert "provider timeout" not in summary
+        assert "Fallback chain" not in summary
+
+    def test_script_timeout_is_not_mislabeled_as_provider_timeout(self):
+        summary = _summarize_cron_failure_for_delivery(
+            {"name": "Daily Macro Brief"},
+            "Script timed out after 2400s: /home/ubuntu/.hermes/scripts/job.sh",
+        )
+
+        assert "script timed out after 2400s" in summary
+        assert "provider timeout" not in summary
+        assert "Fallback chain" not in summary
 
 
 class TestPerJobToolsetMcpMerge:
