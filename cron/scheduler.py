@@ -102,6 +102,25 @@ def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
     text = (error or "unknown error").strip()
     lower = text.lower()
 
+    # Script-runner errors may embed provider-like words in captured stdout
+    # (for example a configured ``timeout=1800s``). Classify the runner's
+    # top-level failure envelope before inspecting nested output, otherwise a
+    # non-zero script exit is mislabeled as a provider timeout and incorrectly
+    # claims that the fallback chain was exhausted.
+    script_exit = re.match(r"(?i)^script exited with code\s+(-?\d+)\b", text)
+    if script_exit:
+        return (
+            f"⚠️ Cron '{job_name}' failed: script exited with code "
+            f"{script_exit.group(1)}. Full details saved in cron output."
+        )
+
+    script_timeout = re.match(r"(?i)^script timed out after\s+([^:\s]+)", text)
+    if script_timeout:
+        return (
+            f"⚠️ Cron '{job_name}' failed: script timed out after "
+            f"{script_timeout.group(1)}. Full details saved in cron output."
+        )
+
     # Provider/API failures are the common noisy path. Keep these short.
     if "429" in text or "rate limit" in lower or "usage limit" in lower:
         reason = "rate limit"
