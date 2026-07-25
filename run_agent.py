@@ -4815,6 +4815,31 @@ class AIAgent:
             self._extract_codex_interim_visible_parts(assistant_msg)
         ).strip()
 
+    @staticmethod
+    def _assistant_content_visible_text(content: Any) -> str:
+        """Flatten text from OpenAI-style multimodal message content safely."""
+        if isinstance(content, str):
+            return content
+        if not isinstance(content, list):
+            return ""
+        parts: List[str] = []
+        for block in content:
+            if isinstance(block, str):
+                if block.strip():
+                    parts.append(block)
+                continue
+            if not isinstance(block, dict):
+                continue
+            block_type = str(block.get("type") or "").strip().lower()
+            if block_type not in {"", "text", "input_text", "output_text"}:
+                continue
+            text = block.get("text")
+            if isinstance(text, dict):
+                text = text.get("value")
+            if isinstance(text, str) and text.strip():
+                parts.append(text)
+        return "\n".join(parts)
+
     def _interim_assistant_visible_text(self, assistant_msg: Dict[str, Any]) -> str:
         """Return the exact assistant text eligible for interim delivery.
 
@@ -4826,8 +4851,8 @@ class AIAgent:
         visible = self._extract_codex_interim_visible_text(assistant_msg)
         if visible:
             return visible
-        content = assistant_msg.get("content")
-        return self._strip_think_blocks(content or "").strip()
+        content = self._assistant_content_visible_text(assistant_msg.get("content"))
+        return self._strip_think_blocks(content).strip()
 
     def _interim_text_was_delivered(self, text: str) -> bool:
         normalized = self._normalize_interim_visible_text(text)
