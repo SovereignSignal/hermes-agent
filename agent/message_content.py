@@ -26,6 +26,8 @@ def _text_from_part(part: Any) -> str:
 
     for key in _TEXT_KEYS:
         text = _field(part, key)
+        if isinstance(text, Mapping):
+            text = text.get("value")
         if isinstance(text, str):
             return text
     return ""
