@@ -107,6 +107,8 @@ class _FakeSocketModeClient:
     def __init__(self) -> None:
         self.aiohttp_client_session = _FakeSession(self)
         self.closed = False
+        self.default_auto_reconnect_enabled = True
+        self.auto_reconnect_enabled = True
         self.close_should_raise = False
         self.message_processor = None
         self.current_session_monitor = None
@@ -272,6 +274,19 @@ class TestSocketModeTeardown:
 
 
 class TestSocketModeRestart:
+
+    @pytest.mark.asyncio
+    async def test_adapter_is_the_only_reconnect_owner(self, adapter):
+        """SDK monitor tasks must not race the adapter's handler rebuild."""
+        handler = _FakeHandler()
+        with patch.object(_slack_mod, "AsyncSocketModeHandler", return_value=handler):
+            adapter._start_socket_mode_handler()
+        try:
+            assert handler.client.default_auto_reconnect_enabled is False
+            assert handler.client.auto_reconnect_enabled is False
+            assert adapter._socket_mode_task is not None
+        finally:
+            await adapter._stop_socket_mode_handler()
 
 
     @pytest.mark.asyncio

@@ -657,6 +657,22 @@ def _apply_slack_proxy(client: Any, proxy_url: Optional[str]) -> None:
         client.proxy = proxy_url
 
 
+def _delegate_socket_reconnect_to_watchdog(client: Any) -> None:
+    """Make the adapter watchdog the sole Socket Mode reconnect owner.
+
+    slack_sdk's aiohttp client can enter an unbounded ``connect()`` retry loop
+    from either of its internal monitor/receiver tasks. If adapter teardown then
+    closes the shared ClientSession, a racing SDK loop survives and emits
+    ``Session is closed`` forever (slackapi/python-slack-sdk#1913). The adapter
+    already has a bounded watchdog that rebuilds the whole handler, so disabling
+    the SDK's competing auto-reconnect path removes the race without removing
+    recovery.
+    """
+    for attribute in ("default_auto_reconnect_enabled", "auto_reconnect_enabled"):
+        if hasattr(client, attribute):
+            setattr(client, attribute, False)
+
+
 # SocketModeClient's own background tasks. Looked up with getattr so a rename
 # inside the SDK degrades to a no-op instead of raising during shutdown.
 _SOCKET_CLIENT_TASK_ATTRS = (
@@ -1178,6 +1194,7 @@ class SlackAdapter(BasePlatformAdapter):
             self._app, self._app_token, proxy=self._proxy_url
         )
         _apply_slack_proxy(self._handler.client, self._proxy_url)
+        _delegate_socket_reconnect_to_watchdog(self._handler.client)
 
         task = asyncio.create_task(self._handler.start_async())
         self._socket_mode_task = task
