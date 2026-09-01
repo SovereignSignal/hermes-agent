@@ -167,7 +167,7 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     ),
     "wake.openwakeword": (
         "openwakeword==0.6.0",
-        "onnxruntime==1.27.0",
+        "onnxruntime==1.29.0",
         "sounddevice==0.5.5",
         "numpy==2.4.3",
     ),
@@ -319,7 +319,7 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     # uv.lock so the whole tree converges on ONE hub version
     # (tests/test_project_metadata.py enforces both). When bumping: update
     # here AND `uv lock --upgrade-package huggingface-hub` in lockstep.
-    "tool.trace_upload": ("huggingface-hub==1.24.0",),
+    "tool.trace_upload": ("huggingface-hub==1.29.0",),
 }
 
 
